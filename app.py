@@ -7,8 +7,6 @@ import logging
 load_dotenv()
 
 app = Flask(__name__)
-
-# Set up logging
 logging.basicConfig(level=logging.DEBUG)
 
 window_prev_state = []
@@ -26,15 +24,19 @@ def fetch_with_timeout(url, timeout=5000):
         logging.debug(f"Requesting URL: {url}")
 
         response = requests.get(url, headers=headers, timeout=timeout / 1000)
-        logging.debug(f"Response status code: {response.status_code}")
-        if response.status_code == 401:
-            logging.error("Unauthorized: Check the ACCESS_TOKEN")
         response.raise_for_status()
+        logging.debug(f"Response status code: {response.status_code}")
         logging.debug(f"Response data: {response.json()}")
 
         return response.json()
     except requests.Timeout:
         logging.error('Request took too long and was ignored.')
+        return None
+    except requests.HTTPError as http_err:
+        if response.status_code == 401:
+            logging.error('Unauthorized: Check the ACCESS_TOKEN')
+        logging.error(f'HTTP error occurred: {http_err}')
+        logging.error(f'Response content: {response.content}')
         return None
     except requests.RequestException as e:
         logging.error(f'Request failed: {e}')
@@ -61,7 +63,7 @@ def get_numbers(number_id):
     else:
         return jsonify({"message": "Error number type"}), 400
 
-    data = fetch_with_timeout(url)
+    data = fetch_with_timeout(url, timeout=10000)  # Increased timeout to 10 seconds
 
     if data:
         numbers = data.get('numbers', [])
